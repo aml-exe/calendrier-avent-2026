@@ -42,7 +42,7 @@ jobs:
       - name: Récupérer le projet
         uses: actions/checkout@v4
 
-      - name: Robot : construire, vérifier, tenir le journal
+      - name: "Robot : construire, vérifier, tenir le journal"
         id: robot
         shell: pwsh
         env:
