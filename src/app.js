@@ -165,10 +165,127 @@
     ouvrir(parJour[jour] || { jour: jour, manquant: true });
   }
 
-  // Ouverture d'un cadeau (le cortège du Père Noël viendra s'y greffer)
+  // Ouverture : le Père Noël et ses lutins tirent la nouvelle sur un bandeau, puis le cadeau s'ouvre
+  var reduit = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function ouvrir(c) {
-    afficherFenetre(c);
+    if (reduit || c.manquant) { afficherFenetre(c); return; }
+    var scene = document.getElementById('scene');
+    var cortege = document.getElementById('cortege');
+    document.getElementById('bandeau-texte').textContent =
+      (c.emoji ? c.emoji + ' ' : '') + c.titre;
+    scene.hidden = false;
+    scene.classList.remove('joue');
+    void scene.offsetWidth; // relance l'animation
+    scene.classList.add('joue');
+    if (musique.active()) musique.carillon();
+
+    var fini = false;
+    function terminer() {
+      if (fini) return;
+      fini = true;
+      scene.classList.remove('joue');
+      scene.hidden = true;
+      cortege.removeEventListener('animationend', surFin);
+      scene.removeEventListener('click', terminer);
+      document.removeEventListener('keydown', surTouche);
+      afficherFenetre(c);
+    }
+    function surFin(e) { if (e.target === cortege) terminer(); }
+    function surTouche(e) { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); terminer(); } }
+    cortege.addEventListener('animationend', surFin);
+    scene.addEventListener('click', terminer);
+    document.addEventListener('keydown', surTouche);
   }
+
+  // ---------- Musique : « Jingle Bells » (domaine public), jouée au synthétiseur ----------
+  var musique = (function () {
+    var ctx = null, sortie = null, prochain = null, bruit = null;
+    var NOTES = { C: 523.25, D: 587.33, E: 659.25, F: 698.46, G: 783.99, A: 880, Cg: 261.63, Gg: 196 };
+    var refrain = [
+      ['E', 1], ['E', 1], ['E', 2], ['E', 1], ['E', 1], ['E', 2], ['E', 1], ['G', 1], ['C', 1.5], ['D', .5], ['E', 4],
+      ['F', 1], ['F', 1], ['F', 1.5], ['F', .5], ['F', 1], ['E', 1], ['E', 1], ['E', .5], ['E', .5],
+      ['E', 1], ['D', 1], ['D', 1], ['E', 1], ['D', 2], ['G', 2],
+      ['E', 1], ['E', 1], ['E', 2], ['E', 1], ['E', 1], ['E', 2], ['E', 1], ['G', 1], ['C', 1.5], ['D', .5], ['E', 4],
+      ['F', 1], ['F', 1], ['F', 1.5], ['F', .5], ['F', 1], ['E', 1], ['E', 1], ['E', .5], ['E', .5],
+      ['G', 1], ['G', 1], ['F', 1], ['D', 1], ['C', 4]
+    ];
+    var TEMPS = 0.3; // durée d'une noire, en secondes
+
+    function cloche(freq, t, duree, volume) {
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(volume, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(duree * 1.5, 0.45));
+      g.connect(sortie);
+      [[1, 1, 'sine'], [2, 0.3, 'sine'], [3.01, 0.08, 'triangle']].forEach(function (h) {
+        var o = ctx.createOscillator();
+        var gh = ctx.createGain();
+        o.type = h[2];
+        o.frequency.value = freq * h[0];
+        gh.gain.value = h[1];
+        o.connect(gh); gh.connect(g);
+        o.start(t); o.stop(t + Math.max(duree * 1.5, 0.45) + 0.05);
+      });
+    }
+    function grelot(t) {
+      var s = ctx.createBufferSource();
+      s.buffer = bruit;
+      var f = ctx.createBiquadFilter();
+      f.type = 'highpass'; f.frequency.value = 6000;
+      var g = ctx.createGain();
+      g.gain.setValueAtTime(0.12, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+      s.connect(f); f.connect(g); g.connect(sortie);
+      s.start(t); s.stop(t + 0.1);
+    }
+    function programmer(debut) {
+      var t = debut;
+      refrain.forEach(function (n) {
+        cloche(NOTES[n[0]], t, n[1] * TEMPS, 0.5);
+        t += n[1] * TEMPS;
+      });
+      var temps = Math.round((t - debut) / TEMPS);
+      for (var i = 0; i < temps; i++) {
+        grelot(debut + i * TEMPS);
+        if (i % 2 === 0) cloche(i % 4 === 0 ? NOTES.Cg : NOTES.Gg, debut + i * TEMPS, TEMPS, 0.18);
+      }
+      var fin = t + TEMPS * 2;
+      prochain = setTimeout(function () { programmer(fin); }, (fin - ctx.currentTime - 0.5) * 1000);
+    }
+    function demarrer() {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return false;
+      ctx = new AC();
+      sortie = ctx.createGain();
+      sortie.gain.value = 0.25;
+      sortie.connect(ctx.destination);
+      bruit = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+      var d = bruit.getChannelData(0);
+      for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      programmer(ctx.currentTime + 0.1);
+      return true;
+    }
+    function arreter() {
+      clearTimeout(prochain);
+      if (ctx) ctx.close();
+      ctx = null;
+    }
+    return {
+      active: function () { return !!ctx; },
+      basculer: function () { if (ctx) { arreter(); return false; } return demarrer(); },
+      carillon: function () {
+        if (!ctx) return;
+        var t = ctx.currentTime + 0.05;
+        ['G', 'C', 'E', 'G'].forEach(function (n, i) { cloche(NOTES[n] * 2, t + i * 0.12, 0.3, 0.3); });
+      }
+    };
+  })();
+
+  document.getElementById('musique').addEventListener('click', function () {
+    var on = musique.basculer();
+    this.setAttribute('aria-pressed', String(on));
+    this.querySelector('.libelle').textContent = on ? 'Musique : en route' : 'Musique';
+  });
 
   function afficherFenetre(c) {
     var f = document.getElementById('fenetre');
