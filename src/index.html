@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Calendrier de l'Avent des bonnes nouvelles</title>
+  <meta name="description" content="Un sapin, 24 cadeaux et une étoile : une bonne nouvelle de 2026 à ouvrir chaque jour de décembre.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="neige" aria-hidden="true"></div>
+
+  <div id="bandeau-dev" class="bandeau-dev" hidden></div>
+
+  <header class="entete">
+    <h1>Calendrier de l'Avent<span>des bonnes nouvelles 2026</span></h1>
+    <p id="message-jour" class="message-jour"></p>
+    <button id="musique" class="bouton-musique" type="button" aria-pressed="false">
+      <span aria-hidden="true">🎵</span> <span class="libelle">Musique</span>
+    </button>
+  </header>
+
+  <ul class="legende" aria-label="Légende">
+    <li><span class="pastille" aria-hidden="true">★</span> Cadeau du jour</li>
+    <li><span class="pastille" aria-hidden="true">✓</span> Déjà ouvert</li>
+    <li><span class="pastille" aria-hidden="true">🔒</span> Pas encore</li>
+  </ul>
+
+  <main>
+    <section class="sapin" id="sapin" aria-label="Sapin de l'Avent : 24 cadeaux et une étoile"></section>
+  </main>
+
+  <p id="annonce" class="annonce" role="status" aria-live="polite"></p>
+
+  <dialog id="fenetre" class="fenetre" aria-labelledby="fenetre-titre">
+    <div class="fenetre-contenu">
+      <p class="fenetre-jour" id="fenetre-jour"></p>
+      <p class="fenetre-emoji" id="fenetre-emoji" aria-hidden="true"></p>
+      <h2 id="fenetre-titre"></h2>
+      <div id="fenetre-image"></div>
+      <p id="fenetre-texte"></p>
+      <p id="fenetre-voeux" class="fenetre-voeux" hidden></p>
+      <button type="button" class="fermer" id="fermer">Refermer le cadeau</button>
+    </div>
+  </dialog>
+
+  <footer class="pied">Un cadeau s'ouvre chaque jour à minuit, heure de Paris.</footer>
+
+  <script type="application/json" id="donnees">__DONNEES__</script>
+  <script src="app.js"></script>
+</body>
+</html>
