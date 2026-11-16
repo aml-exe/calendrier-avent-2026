@@ -1,29 +1,24 @@
 <#
-  Verifie que dist/index.html ne contient AUCUN texte de case future.
-  Lance apres build.ps1 (meme date). Echoue (code 1) si une fuite est trouvee :
-  dans GitHub Actions, la mise en ligne est alors annulee et l'ancienne version reste en place.
-
-    .\verifier.ps1                 # date du jour a Paris
-    .\verifier.ps1 -Date 2026-12-12
+  Verifie que le site genere (dist/) ne contient AUCUN texte d'une case fermee.
+  Les cases ouvertes sont lues dans dist/etat.json (ecrit par build.ps1), ou passees avec -Autorisees.
+  Echoue (code 1) si une fuite est trouvee : dans GitHub Actions, rien n'est alors publie
+  et l'ancienne version reste en ligne.
 #>
-param([string]$Date)
+param([int[]]$Autorisees)
 
 $ErrorActionPreference = 'Stop'
 $racine = $PSScriptRoot
 $utf8 = New-Object System.Text.UTF8Encoding($false)
+$dist = Join-Path $racine 'dist'
 
-if ($Date) {
-  $aujourdhui = [DateTime]::ParseExact($Date, 'yyyy-MM-dd', [Globalization.CultureInfo]::InvariantCulture)
-} else {
-  $aujourdhui = $null
-  foreach ($id in @('Europe/Paris', 'Romance Standard Time')) {
-    try { $aujourdhui = [TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, [TimeZoneInfo]::FindSystemTimeZoneById($id)).Date; break } catch { }
-  }
+if (-not $PSBoundParameters.ContainsKey('Autorisees')) {
+  $etat = [IO.File]::ReadAllText((Join-Path $dist 'etat.json'), $utf8) | ConvertFrom-Json
+  $Autorisees = @($etat.ouvertes)
 }
 
 $source = [IO.File]::ReadAllText((Join-Path $racine 'contenu/cases.json'), $utf8) | ConvertFrom-Json
 $publie = ''
-Get-ChildItem (Join-Path $racine 'dist') -Recurse -File -Include *.html, *.js, *.json, *.txt, *.css | ForEach-Object {
+Get-ChildItem $dist -Recurse -File -Include *.html, *.js, *.json, *.txt, *.css | ForEach-Object {
   $publie += [IO.File]::ReadAllText($_.FullName, $utf8)
 }
 # Ajoute aussi les textes decodes des donnees JSON (apostrophes et accents echappes)
@@ -35,8 +30,7 @@ if ($m.Success) {
 
 $fuites = @()
 foreach ($c in $source.cases) {
-  $ouvreLe = New-Object DateTime([int]$source.annee, 12, [int]$c.jour)
-  if ($aujourdhui -lt $ouvreLe) {
+  if ($Autorisees -notcontains [int]$c.jour) {
     foreach ($champ in @('titre', 'texte', 'voeux')) {
       $v = $c.$champ
       if ($v -and $v.Length -ge 12 -and $publie.Contains($v.Substring(0, [Math]::Min(40, $v.Length)))) {
@@ -47,8 +41,8 @@ foreach ($c in $source.cases) {
 }
 
 if ($fuites.Count -gt 0) {
-  Write-Host ("FUITE : contenu futur trouve dans le site publie -> " + ($fuites -join ', '))
+  Write-Host ("FUITE : contenu d'une case fermee trouve dans le site -> " + ($fuites -join ', '))
   exit 1
 }
-Write-Host ("OK : aucune case future dans le site publie (date {0})." -f $aujourdhui.ToString('dd/MM/yyyy'))
+Write-Host ("OK : seules les cases ouvertes [{0}] ont un contenu dans le site." -f ($Autorisees -join ','))
 exit 0

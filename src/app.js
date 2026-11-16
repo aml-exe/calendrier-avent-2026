@@ -24,14 +24,20 @@
   function dateDe(jour) {
     return D.annee + '-12-' + (jour < 10 ? '0' : '') + jour;
   }
+  // L'état vient des données publiées : une case fermée n'a que son heure d'ouverture.
   function etatDe(jour) {
-    var d = dateDe(jour);
-    if (AUJ < d) return 'fermee';
-    if (AUJ === d) return 'dujour';
-    return 'ouverte';
+    var c = parJour[jour];
+    if (!c || c.ouvreLe || c.ouvreA) return 'fermee';
+    return jour === D.dujour ? 'dujour' : 'ouverte';
   }
   function jourEnLettres(jour) {
     return (jour === 1 ? '1er' : String(jour)) + ' décembre';
+  }
+  function heure(hhmm) { return String(hhmm).replace(':', 'h'); }
+  // « le 14 décembre à minuit » (rythme normal) ou « à 21h55 » (mode soirée)
+  function quand(jour) {
+    var c = parJour[jour] || {};
+    return c.ouvreA ? 'à ' + heure(c.ouvreA) : 'le ' + jourEnLettres(jour) + ' à minuit';
   }
   function dateLongue(iso) {
     var p = iso.split('-');
@@ -42,7 +48,7 @@
   var ICONES = { fermee: '🔒', dujour: '★', ouverte: '✓' };
   function libelle(jour, etat) {
     var nom = jour === 25 ? "L'étoile du 25" : 'Cadeau ' + jour;
-    if (etat === 'fermee') return nom + ', pas encore disponible : s\'ouvre le ' + jourEnLettres(jour) + ' à minuit';
+    if (etat === 'fermee') return nom + ', pas encore disponible : s\'ouvre ' + quand(jour);
     if (etat === 'dujour') return nom + ', cadeau du jour : à ouvrir !';
     return nom + ', déjà ouvert : à relire';
   }
@@ -342,7 +348,7 @@
       void bouton.offsetWidth;
       bouton.classList.add('secoue');
       annoncer('🔒 Patience ! ' + (jour === 25 ? "L'étoile" : 'Le cadeau n°' + jour) +
-        ' s\'ouvrira le ' + jourEnLettres(jour) + ' à minuit (heure de Paris).');
+        ' s\'ouvrira ' + quand(jour) + ' (heure de Paris).');
       return;
     }
     ouvrir(parJour[jour] || { jour: jour, manquant: true });
@@ -374,6 +380,7 @@
     function surFin(e) { if (e.target === cortege) terminer(); }
     function surTouche(e) { if (e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); terminer(); } }
     cortege.addEventListener('animationend', surFin);
+    setTimeout(terminer, 6000); // filet de sécurité si l'animation est suspendue (onglet en arrière-plan)
     scene.addEventListener('click', terminer);
     document.addEventListener('keydown', surTouche);
   }
@@ -518,7 +525,15 @@
   function messageDuJour() {
     var m = document.getElementById('message-jour');
     var debut = dateDe(1);
-    if (AUJ < debut) {
+    var nbOuverts = D.cases.filter(function (c) { return !c.ouvreLe && !c.ouvreA; }).length;
+    if (D.mode === 'soiree') {
+      m.innerHTML = '<strong>Mode soirée</strong> : un cadeau s\'ouvre toutes les 5 minutes. ' +
+        (D.dujour ? 'Le cadeau n°' + D.dujour + ' vient de s\'ouvrir ! ' : '') +
+        (D.prochaine ? 'Prochain cadeau à <strong>' + heure(D.prochaine) + '</strong>.' : 'Tous les cadeaux sont ouverts !');
+    } else if (AUJ < debut && nbOuverts > 0) {
+      m.innerHTML = 'Les cadeaux ouverts pendant la soirée restent à relire. Le prochain s\'ouvre le <strong>' +
+        jourEnLettres(D.prochaine || 1) + ' à minuit</strong>.';
+    } else if (AUJ < debut) {
       var ms = Date.parse(debut + 'T00:00:00Z') - Date.parse(AUJ + 'T00:00:00Z');
       var n = Math.round(ms / 86400000);
       m.innerHTML = 'Le premier cadeau s\'ouvre le <strong>1er décembre à minuit</strong>. Plus que ' +
@@ -571,7 +586,12 @@
   if (D.version) {
     var dc = (D.construit || '').split('T');
     document.getElementById('version').textContent = 'Version ' + D.version +
-      (dc[0] ? ' · construite le ' + dc[0].split('-').reverse().join('/') + ' à ' + (dc[1] || '').replace(':', 'h') : '');
+      (dc[0] ? ' · construite le ' + dc[0].split('-').reverse().join('/') + ' à ' + (dc[1] || '').replace(':', 'h') : '') +
+      ' · ' + (D.mode === 'soiree' ? 'mode soirée (1 cadeau / 5 min)' : 'rythme normal (1 cadeau / jour)');
+  }
+
+  if (D.mode === 'soiree') {
+    document.getElementById('rythme').textContent = 'Mode soirée : un cadeau s\'ouvre toutes les 5 minutes, heure de Paris.';
   }
 
   bandeauDev();

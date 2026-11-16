@@ -37,14 +37,38 @@ Le script les liste aussi dans le terminal.
 
 ## Mise en ligne (GitHub Actions + GitHub Pages)
 
-Le robot `.github/workflows/mettre-en-ligne.yml` reconstruit et publie le calendrier :
+Le robot `.github/workflows/mettre-en-ligne.yml` lance `robot.ps1` :
 
 - à chaque point de sauvegarde envoyé sur `main` ;
-- chaque nuit à 0h01, heure de Paris (en hiver), pour ouvrir le cadeau du jour ;
-- à la demande, via le bouton « Run workflow » de l'onglet Actions.
+- toutes les 5 minutes (planifié) : il ne publie que si quelque chose a changé ;
+- chaque nuit à 23h01 UTC, soit 0h01 à Paris en hiver (UTC+1) ;
+- à la demande, via le bouton « Run workflow » de l'onglet Actions (même traitement exact).
 
-Avant de publier, `verifier.ps1` contrôle qu'aucun texte de case future n'est dans le site.
-Si une étape échoue, rien n'est publié : la version précédente reste en ligne, et le détail se lit dans l'onglet **Actions** du dépôt.
+Les dates se comptent à l'heure de Paris. Le robot travaille en UTC : en décembre, minuit à Paris = 23h00 UTC.
+Le passage toutes les 5 minutes rattrape un passage en retard ou sauté, et suit aussi l'heure d'été.
+
+À chaque passage, le robot :
+1. relit l'état publié (`etat.json` du site) ;
+2. construit le calendrier ; les cadeaux déjà publiés restent ouverts ;
+3. vérifie qu'aucun cadeau n'est publié trop tôt et qu'aucun texte de cadeau fermé n'est dans le site ;
+4. publie seulement s'il y a du nouveau : le lancer deux fois de suite ne change rien ;
+5. écrit le journal (heure, mode, cadeaux ouverts) dans le résumé du passage (onglet Actions) et dans `etat.json`.
+
+Si une étape échoue, rien n'est publié : la version précédente reste en ligne et l'échec apparaît en rouge dans l'onglet **Actions**.
+
+### Mode soirée et rythme normal
+
+Un seul réglage, la variable de dépôt `MODE` (Settings > Secrets and variables > Actions > Variables) :
+
+| `MODE`   | Rythme |
+|----------|--------|
+| `normal` (ou absente) | un cadeau par jour à minuit, heure de Paris |
+| `soiree` | un cadeau toutes les 5 minutes à partir de `SOIREE_DEPART` (« AAAA-MM-JJ HH:mm », heure de Paris) |
+
+Le mode en cours s'affiche en haut et en bas de la page, et dans le journal.
+
+Après une soirée, les cadeaux ouverts restent ouverts et se relisent.
+Pour les refermer avant le vrai mois de décembre : « Run workflow » en cochant « Refermer les cadeaux ouverts en avance ».
 
 Le bas de la page affiche la version en ligne (les 7 premiers caractères du point de sauvegarde) et l'heure de construction.
 `version.txt` à la racine du site donne la même information.

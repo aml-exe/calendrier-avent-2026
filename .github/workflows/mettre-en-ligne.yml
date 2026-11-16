@@ -1,21 +1,34 @@
 name: Mettre en ligne le calendrier
 
+# Réglages (Settings > Secrets and variables > Actions > onglet Variables) :
+#   MODE           normal (défaut) = 1 cadeau par jour à minuit, heure de Paris
+#                  soiree          = 1 cadeau toutes les 5 minutes
+#   SOIREE_DEPART  "AAAA-MM-JJ HH:mm", heure de Paris : ouverture du cadeau n°1 en mode soirée
+
 on:
   # À chaque point de sauvegarde envoyé sur la branche main
   push:
     branches: [main]
-  # Chaque nuit à 23h01 UTC = 0h01 à Paris en hiver : le cadeau du jour s'ouvre
   schedule:
+    # Toutes les 5 minutes : fait avancer le mode soirée et rattrape tout retard.
+    # Si rien n'a changé, le robot ne publie rien.
+    - cron: '*/5 * * * *'
+    # Chaque nuit à 23h01 UTC = 0h01 à Paris en hiver (UTC+1) : le cadeau du jour s'ouvre
     - cron: '1 23 * * *'
-  # Bouton « Run workflow » dans l'onglet Actions
+  # Bouton « Run workflow » dans l'onglet Actions : fait exactement la même chose
   workflow_dispatch:
+    inputs:
+      reinitialiser:
+        description: "Refermer les cadeaux ouverts en avance (après une soirée)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Une seule mise en ligne à la fois ; celle en cours n'est jamais interrompue
+# Un seul passage à la fois ; celui en cours n'est jamais interrompu
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -23,25 +36,31 @@ concurrency:
 jobs:
   construire:
     runs-on: ubuntu-latest
+    outputs:
+      publier: ${{ steps.robot.outputs.publier }}
     steps:
       - name: Récupérer le projet
         uses: actions/checkout@v4
 
-      - name: Construire le calendrier (date du jour à Paris)
+      - name: Robot : construire, vérifier, tenir le journal
+        id: robot
         shell: pwsh
-        run: ./build.ps1
-
-      - name: Vérifier qu'aucune case future n'est publiée
-        shell: pwsh
-        run: ./verifier.ps1
+        env:
+          MODE: ${{ vars.MODE }}
+          SOIREE_DEPART: ${{ vars.SOIREE_DEPART }}
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
+          REINITIALISER: ${{ inputs.reinitialiser }}
+        run: ./robot.ps1
 
       - name: Préparer le site pour GitHub Pages
+        if: steps.robot.outputs.publier == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
   publier:
     needs: construire
+    if: needs.construire.outputs.publier == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
