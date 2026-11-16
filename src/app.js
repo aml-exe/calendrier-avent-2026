@@ -496,17 +496,20 @@
       ctx.resume();
       programmer(ctx.currentTime + 0.1);
     }
+    // Sur téléphone, le navigateur ne précharge pas l'audio : on lance toujours la chanson
+    // au premier geste (cela déclenche son chargement), et la mélodie de secours ne joue
+    // que si la chanson ne peut vraiment pas être lue.
+    var secours = false;
+    function synthe1fois() { if (!secours) { secours = true; synthe(); } }
     function lancer() {
       if (lancee) return;
       lancee = true;
       contexte();
       if (ctx) ctx.resume();
-      if (fichierOk || chanson.readyState >= 2) {
-        chanson.play().catch(function () { synthe(); });
-      } else {
-        synthe();
-      }
+      var p = chanson.play();
+      if (p && p.catch) p.catch(function (e) { if (!e || e.name !== 'AbortError') synthe1fois(); });
     }
+    chanson.addEventListener('error', function () { if (lancee) synthe1fois(); });
     // tentative immédiate (acceptée par certains navigateurs), sinon au premier geste
     chanson.play().then(function () { lancee = true; }).catch(function () {});
     ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
