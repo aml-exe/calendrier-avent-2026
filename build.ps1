@@ -126,7 +126,9 @@ New-Item -ItemType Directory $dist | Out-Null
 
 Get-ChildItem (Join-Path $racine 'src') -File | ForEach-Object {
   if ($_.Name -eq 'index.html') {
-    $html = [IO.File]::ReadAllText($_.FullName, $utf8).Replace('__DONNEES__', $json)
+    # ?v=<version> : force les telephones a recharger le script et le style apres chaque mise a jour
+    $html = [IO.File]::ReadAllText($_.FullName, $utf8).Replace('__DONNEES__', $json).
+      Replace('src="app.js"', "src=""app.js?v=$version""").Replace('href="style.css"', "href=""style.css?v=$version""")
     [IO.File]::WriteAllText((Join-Path $dist 'index.html'), $html, $utf8)
   } else {
     Copy-Item $_.FullName $dist

@@ -501,19 +501,30 @@
     // que si la chanson ne peut vraiment pas être lue.
     var secours = false;
     function synthe1fois() { if (!secours) { secours = true; synthe(); } }
+    // Sur iPhone, seul un toucher terminé (touchend / click) autorise le son : on réessaie
+    // à chaque geste tant que la chanson ne joue pas. Un refus du navigateur (NotAllowedError)
+    // n'est pas une panne : on attend simplement le geste suivant, sans mélodie de secours.
+    var fichierCasse = false;
     function lancer() {
-      if (lancee) return;
-      lancee = true;
+      if (lancee || secours) return;
       contexte();
       if (ctx) ctx.resume();
+      if (fichierCasse) { synthe1fois(); return; }
       var p = chanson.play();
-      if (p && p.catch) p.catch(function (e) { if (!e || e.name !== 'AbortError') synthe1fois(); });
+      if (p && p.then) {
+        p.then(function () { lancee = true; }).catch(function (e) {
+          if (e && (e.name === 'NotSupportedError')) { fichierCasse = true; synthe1fois(); }
+        });
+      } else {
+        lancee = true;
+      }
     }
-    chanson.addEventListener('error', function () { if (lancee) synthe1fois(); });
+    chanson.addEventListener('playing', function () { lancee = true; });
+    chanson.addEventListener('error', function () { fichierCasse = true; });
     // tentative immédiate (acceptée par certains navigateurs), sinon au premier geste
     chanson.play().then(function () { lancee = true; }).catch(function () {});
-    ['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
-      document.addEventListener(ev, lancer, { once: true, capture: true });
+    ['click', 'touchend', 'keydown', 'pointerup'].forEach(function (ev) {
+      document.addEventListener(ev, lancer, { capture: true, passive: true });
     });
     return {
       carillon: function () {
