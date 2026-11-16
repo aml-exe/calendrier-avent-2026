@@ -12,3 +12,6 @@ secrets/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# Réglages locaux de l'éditeur
+.claude/
