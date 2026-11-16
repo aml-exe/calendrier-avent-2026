@@ -112,9 +112,12 @@ $entree = [ordered]@{
 }
 $journal = @()
 if ($prec -and $prec.journal) { $journal = @($prec.journal) }
-$journal = @($journal + (New-Object PSObject -Property $entree)) | Select-Object -Last 300
-$etat | Add-Member -NotePropertyName journal -NotePropertyValue $journal -Force
-[IO.File]::WriteAllText((Join-Path $racine 'dist/etat.json'), ($etat | ConvertTo-Json -Depth 5), $utf8)
+$journal = @(@($journal + (New-Object PSObject -Property $entree)) | Select-Object -Last 300)
+$final = [ordered]@{}
+foreach ($p in $etat.PSObject.Properties) { if ($p.Name -ne 'journal') { $final[$p.Name] = $p.Value } }
+$final['ouvertes'] = [object[]]$ouvertes
+$final['journal'] = [object[]]$journal
+[IO.File]::WriteAllText((Join-Path $racine 'dist/etat.json'), (ConvertTo-Json -InputObject $final -Depth 5), $utf8)
 
 $ligne = "{0} UTC ({1} a Paris) | declencheur : {2} | mode : {3} | case du jour : {4} | nouvelles cases : {5} | ouvertes : {6}/25 | {7}" -f `
   $utc.ToString('dd/MM HH:mm'), $maintenantParis.ToString('HH:mm'), $declencheur, $Mode, $etat.dujour,
