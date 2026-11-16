@@ -62,7 +62,20 @@ foreach ($n in 1..25) {
   $publiees += New-Object PSObject -Property $sortie
 }
 
+# Point de sauvegarde publie : fourni par GitHub Actions, sinon lu dans git
+$version = $env:GITHUB_SHA
+if (-not $version) {
+  try { $version = (git -C $racine rev-parse HEAD 2>$null) } catch { $version = $null }
+}
+if ($version) { $version = $version.Substring(0, 7) } else { $version = 'local' }
+$construit = $null
+foreach ($id in @('Europe/Paris', 'Romance Standard Time')) {
+  try { $construit = [TimeZoneInfo]::ConvertTimeFromUtc([DateTime]::UtcNow, [TimeZoneInfo]::FindSystemTimeZoneById($id)); break } catch { }
+}
+
 $donnees = [ordered]@{
+  version    = $version
+  construit  = $construit.ToString('yyyy-MM-ddTHH:mm')
   titre      = $source.titre
   annee      = $annee
   aujourdhui = $aujourdhui.ToString('yyyy-MM-dd')
@@ -88,9 +101,10 @@ Get-ChildItem (Join-Path $racine 'src') -File | ForEach-Object {
 }
 $assets = Join-Path $racine 'src/assets'
 if (Test-Path $assets) { Copy-Item $assets $dist -Recurse }
+[IO.File]::WriteAllText((Join-Path $dist 'version.txt'), "$version`n$($donnees.construit)`n$($donnees.aujourdhui)`n", $utf8)
 
 $nbOuvertes = @($publiees | Where-Object { -not $_.ouvreLe }).Count
-Write-Host ("Calendrier construit pour le {0} : {1} case(s) ouverte(s) sur 25 -> dist/index.html" -f $aujourdhui.ToString('dd/MM/yyyy'), $nbOuvertes)
+Write-Host ("Calendrier construit pour le {0} : {1} case(s) ouverte(s) sur 25, version {2} -> dist/index.html" -f $aujourdhui.ToString('dd/MM/yyyy'), $nbOuvertes, $version)
 if ($manquantes.Count -gt 0) {
   Write-Warning ("Case(s) sans contenu : " + ($manquantes -join ', '))
 }

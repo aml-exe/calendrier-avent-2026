@@ -567,6 +567,13 @@
     if (e.target === this) this.close(); // clic sur le fond
   });
 
+  // Point de sauvegarde en ligne, pour savoir ce que les visiteurs ont sous les yeux
+  if (D.version) {
+    var dc = (D.construit || '').split('T');
+    document.getElementById('version').textContent = 'Version ' + D.version +
+      (dc[0] ? ' · construite le ' + dc[0].split('-').reverse().join('/') + ' à ' + (dc[1] || '').replace(':', 'h') : '');
+  }
+
   bandeauDev();
   messageDuJour();
   construireSapin();

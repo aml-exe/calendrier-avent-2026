@@ -1,0 +1,52 @@
+name: Mettre en ligne le calendrier
+
+on:
+  # À chaque point de sauvegarde envoyé sur la branche main
+  push:
+    branches: [main]
+  # Chaque nuit à 23h01 UTC = 0h01 à Paris en hiver : le cadeau du jour s'ouvre
+  schedule:
+    - cron: '1 23 * * *'
+  # Bouton « Run workflow » dans l'onglet Actions
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une seule mise en ligne à la fois ; celle en cours n'est jamais interrompue
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  construire:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Récupérer le projet
+        uses: actions/checkout@v4
+
+      - name: Construire le calendrier (date du jour à Paris)
+        shell: pwsh
+        run: ./build.ps1
+
+      - name: Vérifier qu'aucune case future n'est publiée
+        shell: pwsh
+        run: ./verifier.ps1
+
+      - name: Préparer le site pour GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  publier:
+    needs: construire
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - name: Publier sur GitHub Pages
+        id: deploiement
+        uses: actions/deploy-pages@v4

@@ -35,6 +35,20 @@ Puis ouvrir `dist/index.html` dans le navigateur.
 En mode `-Dev`, un bandeau rappelle la date simulée et les cases sans contenu sont signalées par ⚠.
 Le script les liste aussi dans le terminal.
 
+## Mise en ligne (GitHub Actions + GitHub Pages)
+
+Le robot `.github/workflows/mettre-en-ligne.yml` reconstruit et publie le calendrier :
+
+- à chaque point de sauvegarde envoyé sur `main` ;
+- chaque nuit à 0h01, heure de Paris (en hiver), pour ouvrir le cadeau du jour ;
+- à la demande, via le bouton « Run workflow » de l'onglet Actions.
+
+Avant de publier, `verifier.ps1` contrôle qu'aucun texte de case future n'est dans le site.
+Si une étape échoue, rien n'est publié : la version précédente reste en ligne, et le détail se lit dans l'onglet **Actions** du dépôt.
+
+Le bas de la page affiche la version en ligne (les 7 premiers caractères du point de sauvegarde) et l'heure de construction.
+`version.txt` à la racine du site donne la même information.
+
 ## Après le 24 décembre
 
 Le 25, l'étoile au sommet du sapin s'ouvre avec la 25e nouvelle et les vœux.
