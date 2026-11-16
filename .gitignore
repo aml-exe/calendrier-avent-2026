@@ -1,0 +1,14 @@
+# Site généré par build.ps1 (jamais versionné : il est reconstruit chaque jour)
+dist/
+
+# Secrets : ne jamais sauvegarder de mot de passe ni de clé d'API
+.env
+.env.*
+*.key
+*.pem
+secrets/
+
+# Fichiers système
+Thumbs.db
+desktop.ini
+.DS_Store
